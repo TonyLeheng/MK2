@@ -1,11 +1,19 @@
 Commands:
-  [sMovX#Y#Z#S#]  Where # is a double, This will move the robot to an XYZ position, in S is speed in centimeters / second from the current location to goal location
-                  Send Example:   [sMovX15Y15Z20S25]\n   //y is positive  xyz are in mm 
+  [sMovX#Y#Z#V#]  Where # is a double, This will move the robot to an XYZ position, in S is speed in  mm/s from the current location to goal location
+                  Send Example:   [sMovX15Y15Z20V300]\n   //y is positive  xyz are in mm,V from 100-1000mm/s
                   Return Example: [S]\n or [F]  S:SUCCEED F:OUT OF RANGE(but will go to the closest point)
 
-  [gSimX#Y#Z#]    Where # is a double, This will caculate if the robot can arrive the XYZ position
-		  Send Example:   [gSimX0Y120Z100]\n
-		  Return Example: [S0]\n or [F0]\n or [F1]\n    F1:FAIL IN THE PATH   F0:FAIL IN THE DESTINATION   S0:SUCCEED
+  [sPolS#R#H#V#]  Set the polar coordinates
+                  Send Example:   [sPolS100R50H100V1]\n  S&H MEANS STRETCH AND HEIGHT(in mm),R MEANS ROT(in degree),V from 100-1000mm/s
+		  Return Example: [S] or [F]
+
+  [gPol]          Get the polar coordinates
+                  Send Example:   [gPol]\n  
+		  Return Example: [SS100R50H100]\n   S&H MEANS STRETCH AND HEIGHT(in mm),R MEANS ROT(in degree)
+
+  [gSimX#Y#Z#V#]  Where # is a double, This will caculate if the robot can arrive the XYZ position
+		  Send Example:   [gSimX0Y120Z100V0]\n          V1 MEANS THE POLAR COORDINATES TRUE(stretch height and rot)
+  		  Return Example: [S0]\n or [F0]\n or [F1]\n    F1:FAIL IN THE PATH   F0:FAIL IN THE DESTINATION   S0:SUCCEED
 
   [gVer]          Return the version of the firmware
                   Send Example:   [gVer]\n
@@ -51,7 +59,7 @@ Commands:
                   Send Example:   [gIKX0Y-15Z15]\n
                   Return Example: [ST90L15R80]
                   
-  [gFKA#B#C#]     Returns the forward kinematics for ABC servo angles in the form X#Y#Z# where ABC are servos 0,1,2 respectively
+  [gFKT#L#R#]     Returns the forward kinematics for TLR servo angles in the form X#Y#Z# where TLR are servos 0,1,2 respectively
                   Send Example:   [gFKT90L15R80]\n
                   Return Example: [SX0Y-15Z15] 
                   
@@ -66,3 +74,12 @@ Commands:
   [sBuzF#T#]      Set the buzzer to F Frequency for T time
                   Send Example:   [sBuzzF261.63T1]\n
                   Return Example: [S] or [F]  S:SUCCESS  F:WRONG NUMBER
+
+
+
+ERRORS:
+  [ERR1]          Your command was missing a parameter
+
+  [ERR2]          Your command was missing a value for a parameter
+  
+  [ERR3]	  The command does not exist
