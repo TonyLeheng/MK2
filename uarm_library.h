@@ -16,17 +16,17 @@
 #ifndef uArm_library_h
 #define uArm_library_h
 
-// for the external eeprom 
+// for the external eeprom
 #define EXTERNAL_EEPROM_DEVICE_ADDRESS  0xA0
 #define DATA_LENGTH  0x20
 #define LEFT_SERVO_ADDRESS   0x0000
 #define RIGHT_SERVO_ADDRESS  0x02D0
 #define ROT_SERVO_ADDRESS    0x05A0
 
-#define RIGHT_SERVO_OFFSET    14.5//-1liebao   //1.8Degree
-#define LEFT_SERVO_OFFSET     2.6//18.6liebao   //2.6Degree
+#define RIGHT_SERVO_OFFSET    12//-1liebao   //1.8Degree
+#define LEFT_SERVO_OFFSET     4.6//18.6liebao   //2.6Degree
 #define ROT_SERVO_OFFSET     -0//-7liebao
-//#define DEBUG_MODE 
+//#define DEBUG_MODE
 
 #define current_ver         "0.9.4"
 
