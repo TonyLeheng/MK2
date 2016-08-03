@@ -23,8 +23,8 @@
 #define SINGLE_PLAY_MODE            3
 #define LOOP_PLAY_MODE              4
 
-#define LATEST_HARDWARE
-// for the external eeprom 
+// #define LATEST_HARDWARE
+// for the external eeprom
 #ifdef LATEST_HARDWARE
    #define EXTERNAL_EEPROM_DEVICE_ADDRESS 0xA2
 #else
@@ -234,8 +234,8 @@ protected:
     double hand_speed=10;//to save the memory
 
     //offset of assembling
-    float RIGHT_SERVO_OFFSET =   5.6;//12.5ALEX//5.6mine//-1liebao   //1.8Degree
-    float LEFT_SERVO_OFFSET  =   1;//3.8ALEX//1mine//18.6liebao   //2.6Degree
+    float RIGHT_SERVO_OFFSET =   12;//12.5ALEX//5.6mine//-1liebao   //1.8Degree
+    float LEFT_SERVO_OFFSET  =   4.6;//3.8ALEX//1mine//18.6liebao   //2.6Degree
     float ROT_SERVO_OFFSET   =   0;//7ALEX//0mine//-7liebao
 
     //sys status
