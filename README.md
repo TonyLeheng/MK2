@@ -6,7 +6,20 @@
 
  - uArm Metal
 
-Specification Please read Documentation Center /API
+
+**Fix:**
+
+-Improve the moving range, bigger than the old version;
+
+-Restructure the trajectory planning (line or p2p trajectory depends on different situations), so that the destination position among the vaild range can always be reached;
+
+-Fix the problem of reattach. Now it won't move to the wrong place after the reattach;
+
+-Unify the commands [sSerN] [sDetS] [sAttS] to [sSerN] [sDetN] [sAttN]
+
+(the whole code just passed the simple test!!!!!!!!!!!)
+
+*Specification Please read Documentation Center /API*
 [Developer Center][3]  
 
 ## Installation

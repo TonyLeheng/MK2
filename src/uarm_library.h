@@ -25,7 +25,7 @@
 
 #define LEARNING_MODE_STOP          5 //for the record() function to stop recording
 //for the different version of hardware
-// #define LATEST_HARDWARE
+ #define LATEST_HARDWARE
 
 // for the external eeprom
 #ifdef LATEST_HARDWARE
@@ -40,9 +40,9 @@
 #define ROT_SERVO_ADDRESS    0x05A0
 
 #ifdef LATEST_HARDWARE
-	#define current_ver         "H3-S0.9.9a"
+	#define current_ver         "[SH3-S2.0.0a]"
 #else
-   #define current_ver         "H2-S0.9.9a"
+   #define current_ver         "[SH2-S2.0.0a]"
 #endif
 
 #define SERVO_ROT_NUM           0
@@ -62,16 +62,16 @@
 
 // Old Control method Stretch / Height
 
-#define ARM_STRETCH_MIN   0
+/*#define ARM_STRETCH_MIN   0
 #define ARM_STRETCH_MAX   300
 #define ARM_HEIGHT_MIN    -100
-#define ARM_HEIGHT_MAX    250
-#define L3_MAX_ANGLE      120
-#define L3_MIN_ANGLE      5
-#define L4_MAX_ANGLE      120
-#define L4_MIN_ANGLE      5
-#define L4L3_MAX_ANGLE    150
-#define L4L3_MIN_ANGLE    30
+#define ARM_HEIGHT_MAX    250*/
+#define LOWER_ARM_MAX_ANGLE    145 //must be modified for different version
+#define LOWER_ARM_MIN_ANGLE    1//must be modified for different version
+#define UPPER_ARM_MAX_ANGLE    100//must be modified for different version
+#define UPPER_ARM_MIN_ANGLE    1//must be modified for different version
+#define LOWER_UPPER_MAX_ANGLE  150//must be modified for different version
+#define LOWER_UPPER_MIN_ANGLE  15//must be modified for different version
 
 #define LIMIT_SW                2    // LIMIT Switch Button
 #define BUZZER                  3    // HIGH = ON
@@ -95,14 +95,14 @@
 #define MATH_TRANS  57.2958
 #define MATH_L1 90.00
 #define MATH_L2 21.17
-#define MATH_L3 148.25
-#define MATH_L4 160.2
-#define MATH_L43 MATH_L4/MATH_L3
+#define MATH_LOWER_ARM 148.25
+#define MATH_UPPER_ARM 160.2
+#define MATH_FRONT_HEADER 25.00// the distance between wrist to the front point we use
+#define MATH_UPPER_LOWER MATH_UPPER_ARM/MATH_LOWER_ARM
 //for the move_to function
-#define IN_RANGE             0
-#define OUT_OF_RANGE_IN_DST  1
-#define OUT_OF_RANGE_IN_PATH 2
-#define OUT_OF_RANGE         3
+#define IN_RANGE                  1
+#define OUT_OF_RANGE_NO_SOLUTION  2
+#define OUT_OF_RANGE              3
 
 #define RELATIVE 1
 #define ABSOLUTE 0
@@ -134,6 +134,20 @@
 
 #define LINEAR_INTERCEPT        1
 #define LINEAR_SLOPE            2
+
+//uart feedback
+#define SS   "[S]"
+#define S0  "[S0]"
+#define S1  "[S1]"
+#define S2  "[S2]"
+#define FF   "[F]"
+#define F0  "[F0]"
+#define F1  "[F1]"
+
+//getValue() function return
+#define OK                      0
+#define ERR1                    1
+#define ERR2                    2  
 
 class uArmClass
 {
@@ -169,8 +183,8 @@ public:
         read_servo_angle(servo_number, false);
     }
 
-    unsigned char coordinate_to_angle(double x, double y, double z, double *theta_1, double *theta_2, double *theta_3);
-
+    unsigned char coordinate_to_angle(double x, double y, double z, double *theta_1, double *theta_2, double *theta_3, bool data_constrain);
+	unsigned char limit_range(double *rot, double *left, double *right, bool data_constrain);
     void interpolate(double start_val, double end_val, double *interp_vals, byte ease_type);
 
     void gripper_catch(bool value);
@@ -189,8 +203,10 @@ public:
     void attach_all();
     void attach_servo(byte servo_num);
     void runCommand(String cmnd);
-    String getValues(String cmnd, String parameters[], int parameterCount, double *valueArray);
-
+    void printf(bool success, double *dat, char *letters, unsigned char num);
+    void printf(bool success, int dat);
+    void printf(bool success, double dat);
+	char getValue(char *cmnd,const char *parameters, int parameterCount, double *valueArray);
 private:
     void delay_us();
     void iic_start();
@@ -225,16 +241,16 @@ protected:
     unsigned long moveStartTime=0;
     unsigned int microMoveTime=0;
     // the arrays to store the xyz coordinates first and then change to the rot left right angles
-    double x_array[61];
-    double y_array[61];
-    double z_array[61];
+    double x_array[60];
+    double y_array[60];
+    double z_array[60];
     double hand_speed=10;//to save the memory
 
     //offset of assembling
 
-    float LEFT_SERVO_OFFSET  =   18.6;//3.8ALEX//1mine//18.6liebao   //2.6Degree
-    float RIGHT_SERVO_OFFSET =   -11;//12.5ALEX//5.6mine//-1liebao   //1.8Degree
-    float ROT_SERVO_OFFSET   =   -7;//7ALEX//0mine//-7liebao
+    float LEFT_SERVO_OFFSET  =   1;//3.8ALEX//1mine//18.6liebao   //2.6Degree
+    float RIGHT_SERVO_OFFSET =   10;//12.5ALEX//5.6mine//-1liebao   //1.8Degree
+    float ROT_SERVO_OFFSET   =   0;//7ALEX//0mine//-7liebao
 
     //sys status
     unsigned char sys_status = NORMAL_MODE;
