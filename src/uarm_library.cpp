@@ -1192,7 +1192,7 @@ void uArmClass::runCommand(String cmnd)
     //sBuzzF#T#-----------------------------------------------------------------
     //if(cmnd.indexOf(F("sBuz")) >= 0){
     if(cmnd == "sBuz"){
-      const char parameters[3] = {'F','T', 'S'};
+      const char parameters[2] = {'F','T'};
       //String errorResponse        = getValues(cmnd, parameters, 2, values);
       if(getValue(command, parameters, 2, values) == OK) {
       	Serial.println(SS);// successful feedback send it immediately
@@ -1300,7 +1300,7 @@ void uArmClass::runCommand(String cmnd)
     if(cmnd == "gAng"){
       get_current_rotleftright();
       read_servo_angle(SERVO_HAND_ROT_NUM);
-      char letters[4] = {'T','L','R','F'};
+      char letters[4] = {'B','L','R','F'};
       values[0] = cur_rot;
       values[1] = cur_left;
       values[2] = cur_right;
@@ -1327,7 +1327,7 @@ void uArmClass::runCommand(String cmnd)
         	left = left - LEFT_SERVO_OFFSET;//assembling offset
         	right = right - RIGHT_SERVO_OFFSET;//assembling offset
       	}
-        char letters[3] = {'T','L','R'};
+        char letters[3] = {'B','L','R'};
         values[0]=rot;
         values[1]=left;
         values[2]=right;
@@ -1340,7 +1340,7 @@ void uArmClass::runCommand(String cmnd)
     // Get Forward Kinematics
     //if(cmnd.indexOf(F("gFK")) >= 0){
     if(cmnd == "gFKT"){
-      const char parameters[3] = {'T', 'L', 'R'};
+      const char parameters[3] = {'B', 'L', 'R'};
       //errorResponse = getValues(cmnd, parameters, 3, values);
       if(getValue(command, parameters, 3, values) == OK) {
 

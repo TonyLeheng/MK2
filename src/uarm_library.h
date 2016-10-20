@@ -40,9 +40,9 @@
 #define ROT_SERVO_ADDRESS    0x05A0
 
 #ifdef LATEST_HARDWARE
-	#define current_ver         "[SH3-S2.0.0a]"
+	#define current_ver         "[SH3-S2.0.1]"
 #else
-   #define current_ver         "[SH2-S2.0.0a]"
+   #define current_ver         "[SH2-S2.0.1]"
 #endif
 
 #define SERVO_ROT_NUM           0
@@ -248,8 +248,8 @@ protected:
 
     //offset of assembling
 
-    float LEFT_SERVO_OFFSET  =   1;//3.8ALEX//1mine//18.6liebao   //2.6Degree
-    float RIGHT_SERVO_OFFSET =   10;//12.5ALEX//5.6mine//-1liebao   //1.8Degree
+    float LEFT_SERVO_OFFSET  =   -21;//3.8ALEX//1mine//18.6liebao   //1.3Degree
+    float RIGHT_SERVO_OFFSET =   8.4;//12.5ALEX//5.6mine//-1liebao   //5.8Degree
     float ROT_SERVO_OFFSET   =   0;//7ALEX//0mine//-7liebao
 
     //sys status
