@@ -73,8 +73,9 @@ public:
     static void cmdGetPowerStatus(double value[4]);
 #endif
 
+    static void cmdGetServoAngleData(double value[4]);
     static void cmdGetServoAnalogData(double value[4]); 
-
+    static void cmdWaitReady(double value[4]);
   	static void run();	
 
 	static char parseParam(String cmnd, const char *parameters, int parameterCount, double valueArray[]);

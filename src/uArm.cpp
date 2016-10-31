@@ -21,6 +21,13 @@ uArmClass::uArmClass()
 	mCurStep = -1;
 	mTotalSteps = -1;
     mRecordAddr = 0;
+
+    angleIndex[0] = -1;
+    angleIndex[1] = -1;
+    angleIndex[2] = -1;
+
+    calState = INIT;
+
 }
 
 void uArmClass::initHardware()
@@ -64,6 +71,8 @@ void uArmClass::setup()
     mCurStep = -1;
     mTotalSteps = -1;    
 
+    test = 0;
+
 }
 
 
@@ -81,7 +90,7 @@ void uArmClass::controllerRun()
 			if (mController.limitRange(mPathX[mCurStep], mPathY[mCurStep], mPathZ[mCurStep]) != OUT_OF_RANGE_NO_SOLUTION)
 			{
 				//debugPrint("curStep:%d, %s, %s, %s", mCurStep, D(mPathX[mCurStep]), D(mPathY[mCurStep]), D(mPathZ[mCurStep]));
-				/*if (mCurStep == (mTotalSteps - 1))
+				if (mCurStep == (mTotalSteps - 1))
                 {
                     double angles[3];
                     angles[0] = mController.getReverseServoAngle(0, mPathX[mCurStep]);
@@ -92,7 +101,6 @@ void uArmClass::controllerRun()
                     //mController.writeServoAngle(mPathX[mCurStep], mPathY[mCurStep], mPathZ[mCurStep]);
                 }
                 else
-                */
                 {
                     mController.writeServoAngle(mPathX[mCurStep], mPathY[mCurStep], mPathZ[mCurStep]);
                 }
@@ -278,9 +286,15 @@ void uArmClass::tickTaskRun()
 
 void uArmClass::run()
 {
-	gComm.run();
+
+#ifdef PRODUCTION
+    gComm.run();
+    servoCalibration();
+#else
+	
 	controllerRun();
 	systemRun();
+#endif
 
     if(mTime50ms != millis() % TICK_INTERVAL)
     {
@@ -290,6 +304,15 @@ void uArmClass::run()
             tickTaskRun();
         }
     }    
+
+    if(mTime10ms != millis() % 50)
+    {
+        mTime10ms = millis() % 50;
+        if(mTime10ms == 0)
+        {
+            Task10msRun();
+        }
+    }        
 }
 
 void uArmClass::stopMove()
@@ -525,3 +548,353 @@ bool uArmClass::isPowerPlugIn()
         return false;
 }
 #endif 
+
+void uArmClass::Task10msRun()
+{
+    switch(calState)
+    {
+    case INIT:
+        break;
+
+    case START:
+    debugPrint("START");
+        waitReady = true;
+        Serial.println("[C]"); // clear
+
+        
+        
+        calState = READY;   
+
+        break;
+
+    case READY:
+        if (!waitReady)
+        {
+            debugPrint("READY");
+            angleIndex[0] = -1;
+            angleIndex[1] = -1;
+            angleIndex[2] = -1;   
+
+            curAngle[0] = 0;
+            curAngle[1] = 0;
+            curAngle[2] = 0;  
+                       
+            lastAngle[0] = 0;
+            lastAngle[1] = 0;
+            lastAngle[2] = 0;
+
+            mController.writeServoAngle(0, 0, false);
+            mController.writeServoAngle(1, 0, false);
+            mController.writeServoAngle(2, 0, false);
+
+            delay(500);
+
+            m10msCount = 0; 
+            calState = PROCESS;
+        }
+        break;
+
+    case PROCESS:
+        {
+            if ((m10msCount % 3) == 0)
+            {
+                int servoNum = m10msCount / 3;
+
+                if (curAngle[servoNum] > 0 && curAngle[servoNum] <= 180 && lastAngle[servoNum] != curAngle[servoNum])
+                {
+                    lastAngle[servoNum] = curAngle[servoNum];
+                    //String str = String("D" + servoNum);//  + String("V" + curAngle[servoNum]);
+                    Serial.print("[D");
+                    Serial.print(servoNum); // read real angle
+                    Serial.print("V");
+                    Serial.print(curAngle[servoNum]);
+                    Serial.println("]");
+                }
+            }
+            else if ((m10msCount % 3) == 1)
+            {
+                int servoNum = m10msCount / 3;
+
+                if (curAngle[servoNum] == 0 )
+                {
+                    curAngle[servoNum] = 1;
+
+                    
+
+                    mController.writeServoAngle(servoNum, curAngle[servoNum], false);
+               
+                }    
+                else if (angleIndex[servoNum] == curAngle[servoNum])
+                {
+                    // record the data
+                    // servoNum, angleIndex[servoNum], angleValue[servoNum]
+                    unsigned char data[2];
+                    unsigned int startAddr = 0;
+
+                    unsigned int offset = 0;
+
+                    if (angleIndex[servoNum] == 2 && angleValue[servoNum] < 10)
+                    {
+                        //error, restart
+                        calState = READY;
+                    }
+
+
+                    debugPrint("write next");
+                    switch (servoNum)
+                    {
+                    case 0:
+                        startAddr = ROT_SERVO_ADDRESS;
+                        break;
+                    case 1:
+                        startAddr = LEFT_SERVO_ADDRESS;
+                        break;
+                    case 2:
+                        startAddr = RIGHT_SERVO_ADDRESS;
+                        break;
+                    }
+
+           
+                    data[0] = (angleValue[servoNum] & 0xff00) >> 8;
+                    data[1] = angleValue[servoNum] & 0xff;
+
+                    offset = (angleIndex[servoNum] - 1 ) * 2;
+
+                    iic_writebuf(data, EXTERNAL_EEPROM_SYS_ADDRESS, startAddr + offset, 2);
+
+                    curAngle[servoNum]++;
+
+                    if (curAngle[servoNum] <= 180)
+                    {
+                        mController.writeServoAngle(servoNum, curAngle[servoNum], false);
+                    }
+                }         
+            }
+
+            m10msCount++;
+
+            if (m10msCount >= 9)
+                m10msCount = 0;
+
+            if (curAngle[0] > 180 && curAngle[1] > 180 && curAngle[2] > 180)
+            {
+                gBuzzer.buzz(4000, 500);   
+                m10msCount = 0;
+                calState = GETADC;  
+
+                maxAngle[0] = angleValue[0] / 10 - 1;
+                maxAngle[1] = angleValue[1] / 10 - 1;
+                maxAngle[2] = angleValue[2] / 10 - 1;
+
+
+
+                // write to 500 addr
+                unsigned char data[2];
+                unsigned int offset = 0;
+                for (int k = 0; k < 3; k++)
+                {
+                    data[0] = (maxAngle[k] & 0xff00) >> 8;
+                    data[1] = maxAngle[k] & 0xff;
+
+                    offset = (4 + k) * 1024 + 500;
+                    delay(10);
+                    iic_writebuf(data, EXTERNAL_EEPROM_SYS_ADDRESS, offset, 2);
+                    
+                }
+
+                curAngle[0] = 0;
+                curAngle[1] = 0;
+                curAngle[2] = 0;
+
+                for (int j = 0; j < 3; j++)
+                {
+                    mController.writeServoAngle(j, curAngle[0], true);
+
+                }    
+
+                delay(1000);
+            }
+
+            break; 
+
+        case GETADC:
+            m10msCount++;
+            if (m10msCount >= 5)
+            {
+                m10msCount = 0;
+                
+                for (int i = 0; i < 3; i++)
+                {
+                    if (curAngle[i] <= maxAngle[i])
+                    {
+                        getAdcTable(i, curAngle[i]);
+                        
+                    }
+
+                    curAngle[i]++;
+                }
+
+                if (curAngle[0] > maxAngle[0] && curAngle[1] > maxAngle[1] && curAngle[2] > maxAngle[2])
+                {
+                    curAngle[0] = maxAngle[0];
+                    curAngle[1] = maxAngle[1];
+                    curAngle[2] = maxAngle[2];
+
+
+                    calState = GETREADC;  
+
+
+
+
+                    for (int j = 0; j < 3; j++)
+                    {
+                        mController.writeServoAngle(j, curAngle[0], true);
+                    }                    
+                }
+
+            }
+            break;
+
+        case GETREADC:
+            m10msCount++;
+            if (m10msCount >= 5)
+            {
+                m10msCount = 0;
+
+                for (int i = 0; i < 3; i++)
+                {
+                    if (curAngle[i] >= 0)
+                    {
+                        getReAdcTable(i, curAngle[i]);
+                        curAngle[i]--;
+                    }
+                }
+                
+                if (curAngle[0] < 0 && curAngle[1] < 0 && curAngle[2] < 0)
+                {
+                    // done  
+                     gBuzzer.buzz(4000, 500);   
+                     calState = INIT;             
+                }
+
+            }        
+            break;
+
+        }
+        
+    }
+}
+
+void uArmClass::getAdcTable(int servoNum, int angle)
+{
+    unsigned char data[2];
+
+    Serial.print("getAdcTable:");
+    Serial.print(servoNum);
+    Serial.print(":");
+    Serial.println(angle);
+    // read adc 
+    unsigned int adcData = mController.getServoAnalogData(servoNum);
+    Serial.print("adc:");
+    Serial.println(adcData);
+
+
+// write to E2PROM
+    data[0] = (adcData & 0xff00) >> 8;
+    data[1] = adcData & 0xff;
+
+    iic_writebuf(data, EXTERNAL_EEPROM_SYS_ADDRESS, (4 + servoNum) * 1024 + (angle)*2, 2);
+
+// write next angle
+    angle++;
+
+    if (angle <= maxAngle[servoNum])
+    {
+        mController.writeServoAngle(servoNum, angle, true);
+    }
+
+    
+}
+
+void uArmClass::getReAdcTable(int servoNum, int angle)
+{
+    unsigned char data[2];
+
+    Serial.println("getReAdcTable");
+  
+    // read adc 
+    unsigned int adcData = mController.getServoAnalogData(servoNum);
+    Serial.print("adc:");
+    Serial.println(adcData);
+
+// get angle from adc table
+    int angleFromTable = mController.analogToAngle(servoNum, adcData);
+
+
+
+// get the diff of angles
+    int diff = angleFromTable - angle;
+
+    data[0] = (diff & 0xff00) >> 8;
+    data[1] = diff & 0xff;
+
+// write to E2PROM
+   iic_writebuf(data, EXTERNAL_EEPROM_SYS_ADDRESS, (4 + servoNum) * 1024 + 512 + (angle)*2, 2);
+
+
+// write next angle
+    angle--;
+
+    if (angle >= 0)
+    {
+        mController.writeServoAngle(servoNum, angle, true);
+    }       
+    
+}
+
+#ifdef PRODUCTION
+void uArmClass::updateServoAngleData(int servoNum, int index, int data)
+{
+    debugPrint("updateServoAngleData");
+    angleIndex[servoNum] = index;
+    angleValue[servoNum] = data;
+
+    debugPrint("%d, %d, %d", servoNum, angleIndex[servoNum], angleValue[servoNum]);
+}
+
+void uArmClass::servoCalibration()
+{
+    if (mButtonD4.clicked())
+    {
+        mButtonD4.clearEvent();
+        if (calState == INIT)
+        {
+            debugPrint("click");
+            calState = START;
+        }
+        else
+        {
+            debugPrint("click2");
+            calState = INIT;
+        }
+    }
+
+    if (mButtonD7.clicked())
+    {
+        mButtonD7.clearEvent();
+        
+        // double angle = test;
+        // Serial.println(test);
+        // mController.readServoCalibrationData(ROT_SERVO_ADDRESS, angle);
+        // test++;
+
+        unsigned char data[2];
+        iic_readbuf(data, EXTERNAL_EEPROM_SYS_ADDRESS, 4 * 1024 + test*2, 2);
+        unsigned int max = (data[0] << 8) + data[1];   
+        Serial.println(test);
+        Serial.println(max);    
+        test++; 
+        
+    }
+}
+#endif

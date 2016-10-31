@@ -26,6 +26,9 @@ struct Command
 };
 
 const Command command[] PROGMEM= {
+
+#ifndef PRODUCTION
+
 	{"sMov", 4, {'X', 'Y', 'Z', 'V'}, &gComm.cmdMove},
 	{"sPol", 4, {'S', 'R', 'H', 'V'}, &gComm.cmdMovePol},
 	{"sAtt", 1, {'N'}, &gComm.cmdSetAttachServo},
@@ -54,7 +57,7 @@ const Command command[] PROGMEM= {
 	{"sDig", 2, {'N', 'V'}, &gComm.cmdSetDigitValue},
 	{"gAna", 1, {'N'}, &gComm.cmdGetAnalogValue},
 	{"gEEP", 2, {'A', 'T'}, &gComm.cmdGetE2PROMData},
-	{"sEEP", 3, {'A', 'T', 'V'}, &gComm.cmdSetE2PROMData},
+	{"sEEP", 4, {'A', 'T', 'V', 'R'}, &gComm.cmdSetE2PROMData},
 
 
     {"gGri", 0, {}, &gComm.cmdGetGripperStatus},
@@ -64,9 +67,15 @@ const Command command[] PROGMEM= {
     {"gPow", 0, {}, &gComm.cmdGetPowerStatus},
 #endif
 
-    {"gSAD", 1, {'N'}, &gComm.cmdGetServoAnalogData}
 
     
+#endif 
+    {"gDat", 3, {'N', 'I', 'V'}, &gComm.cmdGetServoAngleData},
+    {"gRDY", 0, {}, &gComm.cmdWaitReady},
+
+    
+    {"gSAD", 1, {'N'}, &gComm.cmdGetServoAnalogData}
+
 	
 };
 
@@ -332,7 +341,7 @@ void uArmComm::cmdGetAnalogValue(double value[4])
 
 void uArmComm::cmdGetE2PROMData(double value[4])
 {
-    
+/*    
     switch(int(value[1]))
     {
     case DATA_TYPE_BYTE:
@@ -358,12 +367,112 @@ void uArmComm::cmdGetE2PROMData(double value[4])
             break;
     	}
     }
+*/
+    unsigned char data[4];
+
+    switch(int(value[1]))
+    {
+    case DATA_TYPE_BYTE:
+        {
+            // gRecorder.read(value[0], data, 1);
+            // Serial.println(data[0]);
+            break;
+        }
+    case DATA_TYPE_INTEGER:
+        {
+            int i_val = 0;
+            gRecorder.read(int(value[0]), data, 2);
+            i_val = (data[0] << 8) + data[1];
+            debugPrint("i_val=%d", i_val);
+            Serial.println(i_val);
+            //Serial.println("S" + String(i_val) + "");
+            break;
+        }
+    case DATA_TYPE_FLOAT:
+        {
+            // double f_val = 0.0f;
+            // gRecorder.read(value[0], data, 4);
+            // f_val = (data[0] << 24) + (data[1] << 16) + (data[2] << 8) + data[3];
+            // Serial.println(f_val);
+            //Serial.println("S" + String(f_val) + "");
+            break;
+        }
+    }    
 
 }
 
 void uArmComm::cmdSetE2PROMData(double value[4])
 {
 
+    unsigned char data[4];
+
+    Serial.println(SS);
+
+    switch(int(value[1]))
+    {
+    case DATA_TYPE_BYTE:
+        {
+
+            // data[0] = byte(value[2]);    
+
+            // gRecorder.write(value[0], data, 1);
+            // Serial.println(data[0]);
+            break;
+        }
+    case DATA_TYPE_INTEGER:
+        {
+            int i_val = int(value[2]);
+            int direction = int(value[3]);
+
+
+
+            int servoNum = int(value[0]) / (724);
+
+            debugPrint("servoNum=%d", servoNum);
+
+            debugPrint("i_val=%d", i_val);
+            if (direction)
+            {
+                int curAddr = (int(value[0]) - 362) % (724);
+                curAddr /= 2;
+                debugPrint("curAddr=%d", curAddr);
+                double angle = uArm.mController.analogToAngle(servoNum, i_val);
+                debugPrint("direction angle=%s", D(angle));
+                int diff = angle - curAddr;
+
+                data[0] = (diff & 0xff00) >> 8;
+                data[1] = diff & 0xff;
+            }
+            else
+            {
+                data[0] = (i_val & 0xff00) >> 8;
+                data[1] = i_val & 0xff;
+            }
+
+            gRecorder.write(int(value[0]), data, 2);
+            break;
+        }
+    case DATA_TYPE_FLOAT:
+        {
+
+
+        // union{
+        // double myDouble;
+        // unsigned char myChars[sizeof(double)];
+        // } dVal;
+
+        //     dVal.myDouble = data[2];
+
+        //     data[0] = dVal.myChars[0];
+        //     data[1] = dVal.myChars[1];
+        //     data[2] = dVal.myChars[2];
+        //     data[3] = dVal.myChars[3];
+        //     gRecorder.write(value[0], data, 4);
+            break;
+        }
+    }  
+
+/*
     Serial.println(SS);// successful feedback send it immediately
     // write the EEPROM value
     switch(int(value[1]))
@@ -391,7 +500,7 @@ void uArmComm::cmdSetE2PROMData(double value[4])
             break;
     	}
     }
-
+*/
 }
 
 void uArmComm::cmdGetGripperStatus(double value[4])
@@ -441,7 +550,20 @@ void uArmComm::cmdGetServoAnalogData(double value[4])
     Serial.println(data);
 }
 
+void uArmComm::cmdWaitReady(double value[4])
+{
+    uArm.waitReady = false;
+}
 
+void uArmComm::cmdGetServoAngleData(double value[4])
+{
+    debugPrint("%s, %s, %s", D(value[0]), D(value[1]), D(value[2]));
+    //int servoNum = (int)value[0];
+    //int index = (int)value[1];
+    //int data = (int)value[2];
+
+    uArm.updateServoAngleData(value[0], value[1], value[2]);
+}
 
 char uArmComm::parseParam(String cmnd, const char *parameters, int parameterCount, double valueArray[])
 {
@@ -470,7 +592,9 @@ char uArmComm::parseParam(String cmnd, const char *parameters, int parameterCoun
             endIndex = cmnd.length();
         }
        
+        //Serial.println(cmnd.substring(startIndex, endIndex));
         valueArray[i] = cmnd.substring(startIndex, endIndex).toFloat();
+        //Serial.println(valueArray[i]);
 
     }
 
@@ -486,6 +610,9 @@ void uArmComm::runCommand(String message)
 	String cmdStr = message.substring(0, 4);
 	double value[4];
     int i = 0;
+
+    Serial.println("run:" + message);
+
 
 	Command iCmd;
 
@@ -551,8 +678,9 @@ void uArmComm::handleSerialData(char data)
         {
 
             cmdReceived[cmdIndex] = '\0';
+            String message = cmdReceived;
 
-            runCommand((char*)cmdReceived);
+            runCommand(message);
             mState = IDLE;
         }
         else

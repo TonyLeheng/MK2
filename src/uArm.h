@@ -80,6 +80,19 @@
 
 class uArmClass
 {
+
+	typedef enum {
+		INIT,
+		START,
+		READY,
+		PROCESS,
+		GETADC,
+		GETREADC,
+
+		STATE_COUNT
+
+	} CALIBRATION_STATE;
+
 public:
 	uArmClass();
 
@@ -90,6 +103,13 @@ public:
 	bool isMoving();
  	void stopMove();
 
+#ifdef PRODUCTION
+ 	void servoCalibration();
+ 	void updateServoAngleData(int servoNum, int index, int data);
+#endif 
+
+ 	void getAdcTable(int servoNum, int angle);
+ 	void getReAdcTable(int servoNum, int angle);
 #ifdef MKII	
 	bool isPowerPlugIn();
 #endif
@@ -98,6 +118,20 @@ public:
 	uArmController mController;
 	uArmRecorder mRecorder;
 
+	int angleIndex[3];
+
+	int angleValue[3];
+	int curAngle[3];
+	int lastAngle[3];
+	int maxAngle[3];
+
+	unsigned char mTime10ms;
+	void Task10msRun();
+	unsigned char m10msCount = 0;
+
+	CALIBRATION_STATE calState;
+	bool waitReady = false;
+	double test;
 private:
 	void initHardware();
 	char parseParam(String cmnd, const char *parameters, int parameterCount, double valueArray[]);
@@ -129,6 +163,8 @@ private:
 
 	uArmButton mButtonD4;
 	uArmButton mButtonD7;
+
+
 
 #ifdef MKII
 	uArmLed mLed;

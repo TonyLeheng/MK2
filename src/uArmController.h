@@ -142,7 +142,7 @@ protected:
 
 	double mCurAngle[SERVO_COUNT] = {90, 90, 0, 90};
 	double mLastAngle[SERVO_COUNT] = {90, 90, 0, 90};
-	unsigned int mMaxAdcPos[SERVO_COUNT] = {180};
+
     //offset of assembling
 	double mServoAngleOffset[SERVO_COUNT];
 	

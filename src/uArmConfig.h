@@ -20,6 +20,9 @@
 
 //#define DEBUG
 
+//#define   CALIBRATION
+#define   PRODUCTION
+
 #ifdef DEBUG
 	#define debugPrint	dprint
 #else
