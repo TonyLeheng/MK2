@@ -29,9 +29,9 @@
 
 #define DEFAULT_ANGLE			60
 
-#define GRABBING        		0
-#define WORKING         		1
-#define STOP            		2
+#define GRABBING        		2
+#define WORKING          		1
+#define STOP            		0
 #define PUMP_GRABBING_CURRENT 	55
 
 #ifdef MKII
@@ -124,6 +124,7 @@ public:
 	unsigned char getXYZFromPolar(double& x, double& y, double& z, double s, double r, double h);
 	unsigned char getXYZFromAngle(double& x, double& y, double& z, double rot, double left, double right);
 
+	unsigned int getAnalogData(byte pin);
 	unsigned int getServoAnalogData(byte servoNum);
 	unsigned char coordianteToAngle(double x, double y, double z, double& angleRot, double& angleLeft, double& angleRight, boolean allowApproximate = true);
 	unsigned char limitRange(double& angleRot, double& angleLeft, double& angleRight);
@@ -141,8 +142,8 @@ protected:
 	Servo mServo[SERVO_COUNT];
 
 	double mCurAngle[SERVO_COUNT] = {90, 90, 0, 90};
-	double mLastAngle[SERVO_COUNT] = {90, 90, 0, 90};
 
+	unsigned int mMaxAdcPos[SERVO_COUNT] = {180};
     //offset of assembling
 	double mServoAngleOffset[SERVO_COUNT];
 	

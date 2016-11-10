@@ -14,14 +14,14 @@
 
 #include <Arduino.h>
 
-
+int ardprintf(char *result, char *str, ...);
 #define MKII
 //#define METAL
 
 //#define DEBUG
 
-//#define   CALIBRATION
-#define   PRODUCTION
+
+//#define METAL_MOTOR
 
 #ifdef DEBUG
 	#define debugPrint	dprint

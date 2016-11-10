@@ -22,25 +22,40 @@ void uArmController::init()
 {
 	for (int i = SERVO_ROT_NUM; i < SERVO_COUNT; i++)
 	{
-        double handServoOffset = 0;
+        double servoOffset = 0;
 
-		handServoOffset = readServoAngleOffset(i);
+		servoOffset = readServoAngleOffset(i);
         
-        if (isnan(handServoOffset))
+        if (isnan(servoOffset))
         {
-            handServoOffset = 0;
-            EEPROM.put(MANUAL_OFFSET_ADDRESS + i * sizeof(handServoOffset), handServoOffset);
+            servoOffset = 0;
+            EEPROM.put(MANUAL_OFFSET_ADDRESS + i * sizeof(servoOffset), servoOffset);
         }
         
-        mServoAngleOffset[i] = handServoOffset;
+        mServoAngleOffset[i] = servoOffset;
         debugPrint("offset[%d]: %s\n", i, D(mServoAngleOffset[i]));
 	}
 
-    mServoAngleOffset[0] = 0;
-    mServoAngleOffset[1] = 0;
-    mServoAngleOffset[2] = 0;
-    mServoAngleOffset[3] = 0;
+    // mServoAngleOffset[0] = 6;
+    // mServoAngleOffset[1] = 7;
+    // mServoAngleOffset[2] = 4;
+    // mServoAngleOffset[3] = 0;
 
+
+    for (int k = 0; k < 3; k++)
+    {
+        
+        delay(10);
+        unsigned char data[2];
+        unsigned int offset = (4 + k) * 1024 + 500;
+
+        iic_readbuf(data, EXTERNAL_EEPROM_SYS_ADDRESS, offset, 2);
+       
+        mMaxAdcPos[k] = (data[0] << 8) + data[1];
+
+        //Serial.println(mMaxAdcPos[k]);
+
+    }
 
     mServo[SERVO_ROT_NUM].setPulseWidthRange(500, 2500);
     mServo[SERVO_LEFT_NUM].setPulseWidthRange(500, 2500);
@@ -53,7 +68,10 @@ void uArmController::init()
     // writeServoAngle(SERVO_LEFT_NUM, 90);
     // writeServoAngle(SERVO_RIGHT_NUM, 0);
     // writeServoAngle(SERVO_HAND_ROT_NUM, 90);   
-
+    mCurAngle[0] = readServoAngle(SERVO_ROT_NUM, true);
+    mCurAngle[1] = readServoAngle(SERVO_LEFT_NUM, true);
+    mCurAngle[2] = readServoAngle(SERVO_RIGHT_NUM, true);
+    mCurAngle[3] = readServoAngle(SERVO_HAND_ROT_NUM, true);
 }
 
 
@@ -93,14 +111,14 @@ void uArmController::writeServoAngle(double servoRotAngle, double servoLeftAngle
 
 double uArmController::getReverseServoAngle(byte servoNum, double servoAngle)
 {
-
+#ifdef MKII
     debugPrint("s=%d, angleIn=%s", servoNum, D(servoAngle));
     if (servoAngle < mCurAngle[servoNum])
     {
         unsigned char data[2];
 
             int i_val = 0;
-            int addr = (4 + servoNum) * 1024 + 512 + servoAngle * 2;
+            int addr = (4 + servoNum) * 1024 + 362 + servoAngle * 2;
 
             addr &= 0xfffe;
 
@@ -109,9 +127,9 @@ double uArmController::getReverseServoAngle(byte servoNum, double servoAngle)
 
             i_val = (data[0] << 8) + data[1];
             debugPrint("addr=%d,i_val=%d", addr, i_val);
-            servoAngle = servoAngle - (i_val);
+            servoAngle = servoAngle - (i_val) - 1;
     }
-
+#endif
     return servoAngle;
 
 }
@@ -121,35 +139,16 @@ void uArmController::writeServoAngle(byte servoNum, double servoAngle, boolean w
 
 
 
-#ifdef PRODUCTION
 
 
-    if (writeWithOffset)
-    {
-        switch (servoNum)
-        {
-        case SERVO_ROT_NUM:
-            readServoCalibrationData(ROT_SERVO_ADDRESS, servoAngle);
-            break;
-
-        case SERVO_LEFT_NUM:
-            readServoCalibrationData(LEFT_SERVO_ADDRESS, servoAngle);
-            break;
-
-        case SERVO_RIGHT_NUM:
-            readServoCalibrationData(RIGHT_SERVO_ADDRESS, servoAngle);
-            break;
-
-        }        
-    }
-
-
-#else
 	mCurAngle[servoNum] = servoAngle;
     servoAngle = writeWithOffset ? (servoAngle + mServoAngleOffset[servoNum]) : servoAngle;
 
-    //debugPrint("serveAngle1=%s", D(servoAngle));
+    debugPrint("serveAngle1=%s", D(servoAngle));
 #ifdef MKII
+	
+	servoAngle = getReverseServoAngle(servoNum, servoAngle);
+
     switch (servoNum)
     {
     case SERVO_ROT_NUM:
@@ -166,8 +165,7 @@ void uArmController::writeServoAngle(byte servoNum, double servoAngle, boolean w
 
     }
 #endif
-#endif //CALIBRATION
-    //debugPrint("serveAngle2=%s", D(servoAngle));
+    debugPrint("serveAngle2=%s", D(servoAngle));
 
     mServo[servoNum].write(servoAngle);
 }
@@ -176,23 +174,6 @@ void uArmController::writeServoAngle(byte servoNum, double servoAngle, boolean w
 #ifdef MKII
 void uArmController::readServoCalibrationData(unsigned int address, double& angle)
 {
-/*
-    int angleL = angle * 10;
-
-    delay(10);
-    unsigned char data[2];
-    iic_readbuf(data, EXTERNAL_EEPROM_SYS_ADDRESS, address + 358, 2);
-    unsigned int max = (data[0] << 8) + data[1];
-
-    //Serial.println("max");
-    //Serial.println(max);
-    angleL = map(angleL, 0, max, 0, 1800);
-
-    angle = (double)angleL / 10;
-
-*/
-    delay(10);
-    //Serial.println("readServoCalibrationData");
     unsigned char calibration_data[DATA_LENGTH]; //get the calibration data around the data input
     unsigned int min_data_calibration_address;
     double closest_data, another_closest_data;
@@ -218,8 +199,10 @@ void uArmController::readServoCalibrationData(unsigned int address, double& angl
         min_data_calibration_address = (((unsigned int)angle - (DATA_LENGTH >> 2)) * 2);
     }
 
-    //Serial.print("min_data_calibration_address:");
-    //Serial.println(min_data_calibration_address);
+    // Serial.print("input");
+    // Serial.println(angle);
+    // Serial.print("min_data_calibration_address:");
+    // Serial.println(min_data_calibration_address);
 
     //if (min_data_calibration_address < 0)
     //    min_data_calibration_address = 0;
@@ -230,8 +213,8 @@ void uArmController::readServoCalibrationData(unsigned int address, double& angl
         dataLen = 360 - min_data_calibration_address;
     }
 
-    //Serial.print("dataLen:");
-    //Serial.println(dataLen);
+    // Serial.print("dataLen:");
+    // Serial.println(dataLen);
 
     iic_readbuf(calibration_data, EXTERNAL_EEPROM_SYS_ADDRESS, address + min_data_calibration_address, dataLen);
 
@@ -239,35 +222,23 @@ void uArmController::readServoCalibrationData(unsigned int address, double& angl
 
     for(i=0;i<(dataLen >> 1);i++)
     {
-        ////Serial.println((calibration_data[i+i]<<8) + calibration_data[1+(i+i)]);
         deltaB = abs ((calibration_data[i+i]<<8) + calibration_data[1+(i+i)] - angle * 10);
-
-
         if(deltaA > deltaB)
         {
             i_min = i;
             deltaA = deltaB;
-
-
         }
     }
 
-    //Serial.print("i_min:");
-    //Serial.println(i_min);
-
     closest_data = ((calibration_data[i_min+i_min]<<8) + calibration_data[1+(i_min+i_min)])/10.0;//transfer the dat from ideal data to servo angles
-    
-    //Serial.print("closest_data:");
-    //Serial.println(closest_data);
-
     if(angle >= closest_data)
     {
         if (i_min == 0 || (i_min > 0 && (i_min-1)* 2 < dataLen))
         {
             another_closest_data = ((calibration_data[i_min+i_min+2]<<8) + calibration_data[3+i_min+i_min])/10.0;//bigger than closest
        
-    //Serial.print("another_closest_data1:");
-    //Serial.println(another_closest_data);
+    // Serial.print("another_closest_data1:");
+    // Serial.println(another_closest_data);
 
             if(abs(another_closest_data - closest_data) < 0.001)
             {
@@ -288,8 +259,8 @@ void uArmController::readServoCalibrationData(unsigned int address, double& angl
         if (i_min > 0)
         {
             another_closest_data = ((calibration_data[i_min+i_min-2]<<8) + calibration_data[i_min+i_min-1])/10.0;//smaller than closest
-                //Serial.print("another_closest_data2:");
-    //Serial.println(another_closest_data);
+    //             Serial.print("another_closest_data2:");
+    // Serial.println(another_closest_data);
 
             if(abs(another_closest_data - closest_data) < 0.001)
             {
@@ -305,8 +276,10 @@ void uArmController::readServoCalibrationData(unsigned int address, double& angl
             angle = min_data_calibration_address/2 + i_min + 0.5;
         }
     }    
-    //Serial.print("output angle:");
-    //Serial.println(angle);
+
+    //angle += 1.0;
+    // Serial.print("output angle:");
+    // Serial.println(angle);
 
 
 }
@@ -328,7 +301,7 @@ double uArmController::readServoAngle(byte servoNum, boolean withOffset )
 
 	if (withOffset)
 	{
-		//angle -= mServoAngleOffset[servoNum];
+		angle -= mServoAngleOffset[servoNum];
 	}
 
     angle = constrain(angle, 0.00, 180.00);
@@ -382,19 +355,21 @@ void uArmController::gripperRelease()
 unsigned char uArmController::gripperStatus()
 {
 #ifdef MKII
+    //Serial.println(getAnalogData(GRIPPER_FEEDBACK));
     if (digitalRead(GRIPPER) == HIGH)
     {
         return STOP;//NOT WORKING
     }
     else
     {
-        if (digitalRead(GRIPPER_FEEDBACK) == HIGH)
+        
+        if (getAnalogData(GRIPPER_FEEDBACK) > 600)
         {
-            return GRABBING;
+            return WORKING;
         }
         else
         {
-            return WORKING;
+            return GRABBING;
         }
     }    
 #elif defined(METAL)    
@@ -404,7 +379,7 @@ unsigned char uArmController::gripperStatus()
     }
     else
     {
-        if(getServoAnalogData(GRIPPER_FEEDBACK) > 600)
+        if(getAnalogData(GRIPPER_FEEDBACK) > 600)
         {
             return WORKING;
         }
@@ -426,7 +401,8 @@ unsigned char uArmController::pumpStatus()
     }
     else
     {
-        if (analogRead(PUMP_FEEDBACK) >= PUMP_GRABBING_CURRENT)
+        //Serial.println(getAnalogData(PUMP_FEEDBACK));
+        if (getAnalogData(PUMP_FEEDBACK) <= PUMP_GRABBING_CURRENT)
         {
             return GRABBING;
         }
@@ -616,52 +592,106 @@ void uArmController::readLinearOffset(byte servoNum, double& interceptVal, doubl
 double uArmController::analogToAngle(byte servoNum, int inputAnalog)
 {
 
-    //if (servoNum == 0)
+
+    int startAddr = (4 + servoNum) * 1024;
+    // binary search
+    bool done = false;
+    int min = 0;
+    int max = mMaxAdcPos[servoNum];
+    int angle = (min + max) / 2;
+    unsigned char data[2];
+    int val = 0;
+
+    //debugPrint("inputAnalog=%d", inputAnalog);
+    while (!done && (min < max))
     {
-        int startAddr = (4 + servoNum) * 1024;
-        // binary search
-        bool done = false;
-        int min = 0;
-        int max = 180;
-        int angle = (min + max) / 2;
-        unsigned char data[2];
-        int val = 0;
+        //debugPrint("angle=%d", angle);
+        //gRecorder.read(startAddr+angle*2, data, 2);
+        iic_readbuf(data, EXTERNAL_EEPROM_SYS_ADDRESS, startAddr+angle*2, 2);
 
-        debugPrint("inputAnalog=%d", inputAnalog);
-        while (!done && (min < max))
+        val = (data[0] << 8) + data[1];
+        //debugPrint("val=%d", val);
+        //Serial.print("val=");
+        //Serial.println(val);
+
+#ifdef METAL_MOTOR
+        if (val == inputAnalog)
         {
-            debugPrint("angle=%d", angle);
-            //gRecorder.read(startAddr+angle*2, data, 2);
-            iic_readbuf(data, EXTERNAL_EEPROM_SYS_ADDRESS, startAddr+angle*2, 2);
+            return angle;
+        }
+        else if (val > inputAnalog)
+        {
+            min = angle;
+        }
+        else
+        {
+            max = angle;
+        }
+#else
+        if (val == inputAnalog)
+        {
+            return angle;
+        }
+        else if (val < inputAnalog)
+        {
+            min = angle;
+        }
+        else
+        {
+            max = angle;
+        }        
+#endif
 
-            val = (data[0] << 8) + data[1];
-            debugPrint("val=%d", val);
-            //Serial.print("val=");
-            //Serial.println(val);
+        angle = (min + max) / 2;
 
-            if (val == inputAnalog)
-            {
-                return angle;
-            }
-            else if (val < inputAnalog)
-            {
-                min = angle;
-            }
-            else
-            {
-                max = angle;
-            }
+        //debugPrint("addr2=%d", angle);
+        if (angle == min || angle == max)
+            break;
+    }   
 
-            angle = (min + max) / 2;
 
-            debugPrint("addr2=%d", angle);
-            if (angle == min || angle == max)
-                break;
-        }   
+    // Serial.print("angle=");
+    // Serial.println(angle);
 
+    if (angle == 0 || angle == mMaxAdcPos[servoNum])
+    {
         return angle;
     }
-    // else
+
+    unsigned char adc_data[6];
+
+    iic_readbuf(adc_data, EXTERNAL_EEPROM_SYS_ADDRESS, startAddr+(angle-1)*2, 6);
+
+    min = (adc_data[0] << 8) + adc_data[1];
+    int mid = (adc_data[2] << 8) + adc_data[3];
+    max = (adc_data[4] << 8) + adc_data[5];
+
+    double angleMin = 0.0;
+    double angleMax = 0.0;
+    double angleValue = 0;
+
+    if (inputAnalog > min && inputAnalog <= mid)
+    {
+        angleMin = angle - 1;
+        angleMax = angle;
+        max = mid;
+    }
+    else
+    {
+        angleMin = angle;
+        angleMax = angle+1;
+        min = mid;
+    }
+
+
+    angleValue = (inputAnalog - min) * (angleMax - angleMin) / (max - min) + angleMin ;
+
+    // Serial.print("angleValue=");
+    // Serial.println(angleValue);
+
+    return angleValue;
+
+    // els
     // {
     //     return 0;
     // }
@@ -812,19 +842,37 @@ void uArmController::sort(unsigned int array[], unsigned int len)
 
 unsigned int uArmController::getServoAnalogData(byte servoNum)
 {
-	unsigned int dat[8];
+	// unsigned int dat[8];
 
 
-	for(int i = 0; i < 8; i++)
-	{
-		dat[i] = analogRead(SERVO_ANALOG_PIN[servoNum]);
-	}
+	// for(int i = 0; i < 8; i++)
+	// {
+	// 	dat[i] = analogRead(SERVO_ANALOG_PIN[servoNum]);
+	// }
 
-	sort(dat, 8);
+	// sort(dat, 8);
 
-	unsigned int result = (dat[2]+dat[3]+dat[4]+dat[5])/4;
+	// unsigned int result = (dat[2]+dat[3]+dat[4]+dat[5])/4;
 
-	return result;
+	// return result;
+    return getAnalogData(SERVO_ANALOG_PIN[servoNum]);
+}
+
+unsigned int uArmController::getAnalogData(byte pin)
+{
+    unsigned int dat[8];
+
+
+    for(int i = 0; i < 8; i++)
+    {
+        dat[i] = analogRead(pin);
+    }
+
+    sort(dat, 8);
+
+    unsigned int result = (dat[2]+dat[3]+dat[4]+dat[5])/4;
+
+    return result;    
 }
 
 double uArmController::readServoAngleOffset(byte servoNum)

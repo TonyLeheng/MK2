@@ -63,7 +63,7 @@
 
 
 
-
+//#define TIME_PER_STEP 	10
 
 #define SERVO_9G_MAX    460
 #define SERVO_9G_MIN    98
@@ -80,19 +80,6 @@
 
 class uArmClass
 {
-
-	typedef enum {
-		INIT,
-		START,
-		READY,
-		PROCESS,
-		GETADC,
-		GETREADC,
-
-		STATE_COUNT
-
-	} CALIBRATION_STATE;
-
 public:
 	uArmClass();
 
@@ -100,16 +87,11 @@ public:
 	void run();
 
 	unsigned char moveTo(double x, double y, double z, double speed = 100);
+	unsigned char moveToAngle(double x, double y, double z);
+
 	bool isMoving();
  	void stopMove();
 
-#ifdef PRODUCTION
- 	void servoCalibration();
- 	void updateServoAngleData(int servoNum, int index, int data);
-#endif 
-
- 	void getAdcTable(int servoNum, int angle);
- 	void getReAdcTable(int servoNum, int angle);
 #ifdef MKII	
 	bool isPowerPlugIn();
 #endif
@@ -118,24 +100,12 @@ public:
 	uArmController mController;
 	uArmRecorder mRecorder;
 
-	int angleIndex[3];
-
-	int angleValue[3];
-	int curAngle[3];
-	int lastAngle[3];
-	int maxAngle[3];
-
-	unsigned char mTime10ms;
-	void Task10msRun();
-	unsigned char m10msCount = 0;
-
-	CALIBRATION_STATE calState;
-	bool waitReady = false;
-	double test;
 private:
 	void initHardware();
 	char parseParam(String cmnd, const char *parameters, int parameterCount, double valueArray[]);
 	void interpolate(double startVal, double endVal, double *interpVals, int steps, byte easeType);
+	void interpolateEven(double startVal, double endVal, double *interpVals, int steps, byte easeType);
+
 	void controllerRun();
 	void systemRun();
 	bool play();
@@ -163,8 +133,6 @@ private:
 
 	uArmButton mButtonD4;
 	uArmButton mButtonD7;
-
-
 
 #ifdef MKII
 	uArmLed mLed;
