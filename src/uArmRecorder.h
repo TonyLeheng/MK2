@@ -17,7 +17,8 @@
 #include "uArmHWConfig.h"
 #include "uArmIIC.h"
 
-#define EXTERNAL_EEPROM_USER_ADDRESS  0xA0
+
+
 
 class uArmRecorder
 {

@@ -80,12 +80,12 @@ uArmComm::uArmComm()
 
 
 
-void uArmComm::replyNoCmd(int serialNum)
+void uArmComm::replyError(int serialNum, unsigned int errorCode)
 {
     Serial.print("$");
     Serial.print(serialNum);
     Serial.print(" E");
-    Serial.println(NO_SUCH_CMD);   
+    Serial.println(errorCode);   
 }
 
 void uArmComm::replyOK(int serialNum)
@@ -101,6 +101,14 @@ void uArmComm::replyResult(int serialNum, String result)
     Serial.print("$");
     Serial.print(serialNum);
     Serial.print(" OK ");
+    Serial.println(result);   
+}
+
+void uArmComm::reportResult(int reportCode, String result)
+{
+    Serial.print("@");
+    Serial.print(reportCode);
+    Serial.print(" ");
     Serial.println(result);   
 }
 
@@ -248,17 +256,32 @@ unsigned char uArmComm::cmdStopMove(int serialNum, int parameterCount, double va
     return 0;
 }
 
-unsigned char uArmComm::cmdGetVersion(int serialNum, int parameterCount, double value[4])
+unsigned char uArmComm::cmdGetHWVersion(int serialNum, int parameterCount, double value[4])
 {
     if (parameterCount != 0)
         return PARAMETER_ERROR;    
 
     char result[128];
 
-    ardprintf(result, "V%s", current_ver);
+    ardprintf(result, "V%s", HW_VER);
 
 
 	replyResult(serialNum, result);
+
+    return 0;
+}
+
+unsigned char uArmComm::cmdGetSWVersion(int serialNum, int parameterCount, double value[4])
+{
+    if (parameterCount != 0)
+        return PARAMETER_ERROR;    
+
+    char result[128];
+
+    ardprintf(result, "V%s", SW_VER);
+
+
+    replyResult(serialNum, result);
 
     return 0;
 }
@@ -286,12 +309,12 @@ unsigned char uArmComm::cmdSimulatePos(int serialNum, int parameterCount, double
     switch(status)
     {
     case IN_RANGE: 
-    	strcpy(result, "R1");
+    	strcpy(result, "V1");
         break;
 
     case OUT_OF_RANGE: 
     case OUT_OF_RANGE_NO_SOLUTION: 
-    	strcpy(result, "R0");
+    	strcpy(result, "V0");
        	break;
     default:                
     	break;
@@ -452,11 +475,11 @@ unsigned char uArmComm::cmdIsMoving(int serialNum, int parameterCount, double va
     char result[128];
 	if(uArm.isMoving())
 	{
-        strcpy(result, "S1");
+        strcpy(result, "V1");
 	}
 	else
 	{
-        strcpy(result, "S0");
+        strcpy(result, "V0");
 	}
 
     replyResult(serialNum, result);
@@ -472,11 +495,11 @@ unsigned char uArmComm::cmdGetTip(int serialNum, int parameterCount, double valu
     char result[128];
     if(digitalRead(LIMIT_SW))
     {
-        strcpy(result, "R1");
+        strcpy(result, "V1");
     }
     else
     {
-        strcpy(result, "R0");
+        strcpy(result, "V0");
     }
 
      replyResult(serialNum, result);
@@ -493,7 +516,7 @@ unsigned char uArmComm::cmdGetDigitValue(int serialNum, int parameterCount, doub
    
     //printf(true, val);
     char result[128];
-    ardprintf(result, "R%d", val);
+    ardprintf(result, "V%d", val);
 
     replyResult(serialNum, result);
     return 0;
@@ -523,7 +546,7 @@ unsigned char uArmComm::cmdGetAnalogValue(int serialNum, int parameterCount, dou
 
     //printf(true, val);
     char result[128];
-    ardprintf(result, "R%d", val);
+    ardprintf(result, "V%d", val);
 
     replyResult(serialNum, result);
     return 0;
@@ -531,38 +554,129 @@ unsigned char uArmComm::cmdGetAnalogValue(int serialNum, int parameterCount, dou
 
 unsigned char uArmComm::cmdGetE2PROMData(int serialNum, int parameterCount, double value[4])
 {
-    if (parameterCount != 2)
+    if (parameterCount != 3)
         return PARAMETER_ERROR;    
 
     char result[128];
-    switch(int(value[1]))
+    uint8_t deviceAddr;
+    uint32_t addr = value[1];
+
+    union {
+        float fdata;
+        uint8_t data[4];
+    } FData;
+    
+
+    int device = int(value[0]);
+    int type = value[2];
+
+    switch(device)
     {
-    case DATA_TYPE_BYTE:
-    	{
-            int val = EEPROM.read(value[0]);
-            ardprintf(result, "R%d", val);
-            break;
-    	}
-    case DATA_TYPE_INTEGER:
-    	{
-            int i_val = 0;
-            EEPROM.get(value[0], i_val);
-            ardprintf(result, "R%d", i_val);
-            //Serial.println("S" + String(i_val) + "");
-            break;
-    	}
-    case DATA_TYPE_FLOAT:
-    	{
-            double f_val = 0.0f;
-            EEPROM.get(value[0],f_val);
-            ardprintf(result, "R%f", f_val);
-            //Serial.println("S" + String(f_val) + "");
-            break;
-    	}
+
+    case 0:
+
+        switch(type)
+        {
+        case DATA_TYPE_BYTE:
+        	{
+                int val = EEPROM.read(addr);
+                ardprintf(result, "V%d", val);
+                break;
+        	}
+        case DATA_TYPE_INTEGER:
+        	{
+                int i_val = 0;
+                EEPROM.get(addr, i_val);
+                ardprintf(result, "V%d", i_val);
+                //Serial.println("S" + String(i_val) + "");
+                break;
+        	}
+        case DATA_TYPE_FLOAT:
+        	{
+                double f_val = 0.0f;
+                EEPROM.get(addr,f_val);
+                ardprintf(result, "V%f", f_val);
+                //Serial.println("S" + String(f_val) + "");
+                break;
+        	}
+        }
+
+        break;
+
+    case 1:
+        deviceAddr = EXTERNAL_EEPROM_USER_ADDRESS;
+        break;
+
+    case 2:
+        deviceAddr = EXTERNAL_EEPROM_SYS_ADDRESS;
+        break;
+
+    default:
+        return ADDRESS_ERROR;
     }
 
     
-    
+    if (device == 1 || device == 2)
+    {
+        int num = 0;
+        switch(type)
+        {
+        case DATA_TYPE_BYTE:
+            {
+                num = 1;
+                break;
+            }
+        case DATA_TYPE_INTEGER:
+            {
+                num = 2;
+                break;
+            }
+        case DATA_TYPE_FLOAT:
+            {
+                num = 4;
+                break;
+            }
+        default:
+            return PARAMETER_ERROR;
+        }
+
+        unsigned char i=0;
+        i = (addr % 128);
+        // Since the eeprom's sector is 128 byte, if we want to write 5 bytes per cycle we need to care about when there's less than 5 bytes left
+        if (i >= (129-num)) 
+        {
+            i = 128 - i;
+            iic_readbuf(FData.data, deviceAddr, addr, i);// write data
+            delay(5);
+            iic_readbuf(FData.data + i, deviceAddr, addr + i, num - i);// write data
+        }
+        //if the left bytes are greater than 5, just do it
+        else
+        {
+            iic_readbuf(FData.data, deviceAddr, addr, num);// write data
+        }      
+
+        switch(type)
+        {
+        case DATA_TYPE_BYTE:
+            {
+                ardprintf(result, "V%d", FData.data[0]);
+                break;
+            }
+        case DATA_TYPE_INTEGER:
+            {
+                ardprintf(result, "V%d", (FData.data[0] << 8) + FData.data[1]);
+                break;
+            }
+        case DATA_TYPE_FLOAT:
+            {
+                ardprintf(result, "V%f", FData.fdata);
+                break;
+            }
+        }
+       
+
+    }
 
     replyResult(serialNum, result);    
 
@@ -573,35 +687,113 @@ unsigned char uArmComm::cmdGetE2PROMData(int serialNum, int parameterCount, doub
 unsigned char uArmComm::cmdSetE2PROMData(int serialNum, int parameterCount, double value[4])
 {
 
-    if (parameterCount != 3)
+    if (parameterCount != 4)
         return PARAMETER_ERROR;    
+    
+    uint8_t deviceAddr;
 
-   // Serial.println(SS);// successful feedback send it immediately
-    // write the EEPROM value
-    switch(int(value[1]))
+    uint32_t addr = value[1];
+
+    union {
+        float fdata;
+        uint8_t data[4];
+    } FData;
+    
+    int type = value[2];
+    int device = int(value[0]);
+
+    switch(device)
     {
-    case DATA_TYPE_BYTE:
-    	{
-            byte b_val;
-            b_val = byte(value[2]);
-            EEPROM.write(value[0], b_val);
-            break;
-    	}
-    case DATA_TYPE_INTEGER:
-    	{
-            int i_val = 0;
-            i_val = int(value[2]);
-            EEPROM.put(value[0], i_val);
-            break;
-    	}
-    case DATA_TYPE_FLOAT:
-    	{
-    	    float f_val = 0.0f;
-            f_val = float(value[2]);
-            EEPROM.put(value[0],f_val);
-            // Serial.println(f_val);
-            break;
-    	}
+
+    case 0:    
+        switch(type)
+        {
+        case DATA_TYPE_BYTE:
+        	{
+                byte b_val;
+                b_val = byte(value[3]);
+                EEPROM.write(addr, b_val);
+                break;
+        	}
+        case DATA_TYPE_INTEGER:
+        	{
+                int i_val = 0;
+                i_val = int(value[3]);
+                EEPROM.put(addr, i_val);
+                break;
+        	}
+        case DATA_TYPE_FLOAT:
+        	{
+        	    float f_val = 0.0f;
+                f_val = float(value[3]);
+                EEPROM.put(addr,f_val);
+                // Serial.println(f_val);
+                break;
+        	}
+        }
+        break;
+    case 1:
+        deviceAddr = EXTERNAL_EEPROM_USER_ADDRESS;
+        break;
+
+    case 2:
+        deviceAddr = EXTERNAL_EEPROM_SYS_ADDRESS;
+        break;
+
+    default:
+        return ADDRESS_ERROR;
+    }       
+
+
+    if (device == 1 || device == 2)
+    {
+        int num = 0;
+        switch(type)
+        {
+        case DATA_TYPE_BYTE:
+            {
+                FData.data[0] = byte(value[3]);
+                num = 1;
+                break;
+            }
+        case DATA_TYPE_INTEGER:
+            {
+                int i_val = 0;
+                i_val = int(value[3]); 
+                FData.data[0] = (i_val & 0xff00) >> 8;
+                FData.data[1] = i_val & 0xff;
+                num = 2;
+                break;
+            }
+        case DATA_TYPE_FLOAT:
+            {
+                FData.fdata = float(value[3]);
+                num = 4;
+                break;
+            }
+        default:
+            return PARAMETER_ERROR;
+        }
+
+        unsigned char i=0;
+        i = (addr % 128);
+        // Since the eeprom's sector is 128 byte, if we want to write 5 bytes per cycle we need to care about when there's less than 5 bytes left
+        if (i >= (129-num)) 
+        {
+            i = 128 - i;
+            iic_writebuf(FData.data, deviceAddr, addr, i);// write data
+            delay(5);
+            iic_writebuf(FData.data + i, deviceAddr, addr + i, num - i);// write data
+        }
+        //if the left bytes are greater than 5, just do it
+        else
+        {
+            iic_writebuf(FData.data, deviceAddr, addr, num);// write data
+        }      
+
+
+       
+
     }
 
     replyOK(serialNum);
@@ -621,7 +813,7 @@ unsigned char uArmComm::cmdGetGripperStatus(int serialNum, int parameterCount, d
 
     //Serial.println(ret);
     char result[128];
-    ardprintf(result, "R%d", status);
+    ardprintf(result, "V%d", status);
     replyResult(serialNum, result);
     return 0;
 }
@@ -642,14 +834,14 @@ unsigned char uArmComm::cmdGetPumpStatus(int serialNum, int parameterCount, doub
     //String ret = "[S" + String(status) + "]";
 
     //Serial.println(ret);
-    ardprintf(result, "R%d", status);
+    ardprintf(result, "V%d", status);
 
 #elif defined(METAL)
 
     if (uArm.mController.pumpStatus())
-        strcpy(result, "R1");
+        strcpy(result, "V1");
     else
-        strcpy(result, "R0");
+        strcpy(result, "V0");
 
 #endif
 
@@ -668,9 +860,9 @@ unsigned char uArmComm::cmdGetPowerStatus(int serialNum, int parameterCount, dou
     char result[128];
 
     if (uArm.isPowerPlugIn())
-        strcpy(result, "R1");
+        strcpy(result, "V1");
     else
-        strcpy(result, "R0");   
+        strcpy(result, "V0");   
 
     replyResult(serialNum, result);
 
@@ -688,7 +880,7 @@ unsigned char uArmComm::cmdGetServoAnalogData(int serialNum, int parameterCount,
     char result[128];
 
 
-    ardprintf(result, "R%d", result);   
+    ardprintf(result, "V%d", result);   
 
     replyResult(serialNum, result);
 
@@ -721,6 +913,80 @@ unsigned char uArmComm::cmdRelativeMove(int serialNum, int parameterCount, doubl
     }
 
     return 0;
+}
+
+
+unsigned char uArmComm::cmdSetReportInterval(int serialNum, int parameterCount, double value[4])
+{
+    if (parameterCount != 1)
+        return PARAMETER_ERROR;
+
+
+    uArm.setReportInterval(value[0]*1000);
+
+    replyOK(serialNum);
+
+
+    return 0;
+}
+
+unsigned char uArmComm::cmdGetDeviceName(int serialNum, int parameterCount, double value[4])
+{
+    if (parameterCount != 0)
+        return PARAMETER_ERROR;
+
+    char result[128];
+
+    ardprintf(result, "V%s", DEVICE_NAME);
+ 
+
+    replyResult(serialNum, result);
+
+    return 0;
+}
+
+unsigned char uArmComm::cmdGetAPIVersion(int serialNum, int parameterCount, double value[4])
+{
+    if (parameterCount != 0)
+        return PARAMETER_ERROR;
+
+    char result[128];
+
+    ardprintf(result, "V%s", SW_VER);
+ 
+
+    replyResult(serialNum, result);
+
+    return 0;
+}
+
+unsigned char uArmComm::cmdGetDeviceUUID(int serialNum, int parameterCount, double value[4])
+{
+    if (parameterCount != 0)
+        return PARAMETER_ERROR;
+
+
+    char result[128];
+
+    strcpy(result, "V1234567890");   
+
+    replyResult(serialNum, result);
+
+    return 0;
+}
+
+
+void uArmComm::reportPos()
+{
+    double x, y, z;
+
+    uArm.mController.getCurrentXYZ(x, y, z);
+
+    char result[128];
+    ardprintf(result, "X%f Y%f Z%f", x, y, z);   
+
+    reportResult(REPORT_POS, result);    
+
 }
 
 /*
@@ -832,7 +1098,7 @@ void uArmComm::HandleMoveCmd(int cmdCode, int serialNum, int parameterCount, dou
         break;
         
     default:
-        replyNoCmd(serialNum);
+        replyError(serialNum, NO_SUCH_CMD);
         return;
     }
 
@@ -852,6 +1118,10 @@ void uArmComm::HandleSettingCmd(int cmdCode, int serialNum, int parameterCount, 
 
     switch (cmdCode)
     {
+    case 120:
+        result = cmdSetReportInterval(serialNum, parameterCount, value);
+        break;
+
     case 200:
         result = cmdIsMoving(serialNum, parameterCount, value);
         break;
@@ -866,6 +1136,14 @@ void uArmComm::HandleSettingCmd(int cmdCode, int serialNum, int parameterCount, 
 
     case 210:
         result = cmdSetBuzz(serialNum, parameterCount, value);
+        break;
+
+    case 211:
+        result = cmdGetE2PROMData(serialNum, parameterCount, value);
+        break;
+
+    case 212:
+        result = cmdSetE2PROMData(serialNum, parameterCount, value);
         break;
 
     case 220:
@@ -895,7 +1173,7 @@ void uArmComm::HandleSettingCmd(int cmdCode, int serialNum, int parameterCount, 
 
 
     default:
-        replyNoCmd(serialNum);
+        replyError(serialNum, NO_SUCH_CMD);
         return;
     }
 
@@ -920,8 +1198,24 @@ void uArmComm::HandleQueryCmd(int cmdCode, int serialNum, int parameterCount, do
         break;
 
     case 201:
-        result = cmdGetVersion(serialNum, parameterCount, value);
+        result = cmdGetDeviceName(serialNum, parameterCount, value);
         break;
+
+    case 202:
+        result = cmdGetHWVersion(serialNum, parameterCount, value);
+        break;
+
+    case 203:
+        result = cmdGetSWVersion(serialNum, parameterCount, value);
+        break;        
+
+    case 204:
+        result = cmdGetAPIVersion(serialNum, parameterCount, value);
+        break;
+
+    case 205:
+        result = cmdGetDeviceUUID(serialNum, parameterCount, value);
+        break;        
 
     case 220:
         result = cmdGetCurrentXYZ(serialNum, parameterCount, value);
@@ -939,6 +1233,10 @@ void uArmComm::HandleQueryCmd(int cmdCode, int serialNum, int parameterCount, do
         result = cmdGetGripperStatus(serialNum, parameterCount, value);
         break;
 
+    case 233:
+        result = cmdGetTip(serialNum, parameterCount, value);
+        break;    
+
     case 240:
         result = cmdGetDigitValue(serialNum, parameterCount, value);
         break;
@@ -948,17 +1246,13 @@ void uArmComm::HandleQueryCmd(int cmdCode, int serialNum, int parameterCount, do
         break;
 
     default:
-        replyNoCmd(serialNum);
+        replyError(serialNum, NO_SUCH_CMD);
         return;
     }
 
     if (result > 0)
     {
-        Serial.print("$");
-        Serial.print(serialNum);
-        Serial.print(" ");
-        Serial.print("E");
-        Serial.println(result);
+       replyError(serialNum, result);
     }
 }
 
@@ -967,7 +1261,7 @@ bool uArmComm::parseCommand(char *message)
     double value[6];
     int index = 0;
 
-    //Serial.println(message);
+    // Serial.println(message);
 
 
     int len = strlen(message);
@@ -997,7 +1291,7 @@ bool uArmComm::parseCommand(char *message)
     pch = strtok(message, " ");
     while (pch != NULL && index < 6)
     {
-        //Serial.println(pch);
+        // Serial.println(pch);
         
         switch (index)
         {
@@ -1007,7 +1301,7 @@ bool uArmComm::parseCommand(char *message)
 
         case 1:
             cmdType = *(pch);
-            //Serial.println(cmdType);
+            // Serial.println(cmdType);
             value[index] = atof(pch+1);
             break;
 
@@ -1017,8 +1311,8 @@ bool uArmComm::parseCommand(char *message)
         }
 
 
-        //Serial.print("value=");
-        //Serial.println(value[index]);
+        // Serial.print("value=");
+        // Serial.println(value[index]);
 
         pch = strtok(NULL, " ");
 

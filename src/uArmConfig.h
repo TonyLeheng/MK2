@@ -29,7 +29,23 @@ int ardprintf(char *result, char *str, ...);
 	#define debugPrint
 #endif
 
-#define current_ver         "[SH2-2.1.3]"
+//#define current_ver         "[SH2-2.1.3]"
+
+#ifdef MKII
+  #define HW_VER  "3.1"
+  #define SW_VER  "2.2.0"
+#elif defined(METAL)
+  #define HW_VER  "2.1"
+  #define SW_VER  "2.2.0"
+#endif
+
+#ifdef METAL
+    #define DEVICE_NAME "Metal"  
+#elif defined(MKII)
+    #define DEVICE_NAME "MKII" 
+#else
+    #define DEVICE_NAME "UNKNOWN"  
+#endif
 
 #define TICK_INTERVAL    50    // ms
 

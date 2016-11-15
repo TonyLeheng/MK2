@@ -186,13 +186,13 @@ void uArmController::readServoCalibrationData(unsigned int address, double& angl
         return;
     }
 
-    if (angle < 16)
+    if (angle < (DATA_LENGTH >> 2))
     {
         min_data_calibration_address = 0;
     }
-    else if (angle >= 164)
+    else if (angle > (180 - (DATA_LENGTH >> 2)))
     {
-        min_data_calibration_address = (((unsigned int)angle - (DATA_LENGTH >> 1)) * 2);
+        min_data_calibration_address = (((unsigned int)180 - (DATA_LENGTH >> 1)) * 2);
     }
     else
     {

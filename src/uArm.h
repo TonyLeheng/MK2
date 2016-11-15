@@ -78,6 +78,9 @@
 #define DATA_TYPE_INTEGER       2
 #define DATA_TYPE_FLOAT         4
 
+#define EXTERNAL_EEPROM_SYS_ADDRESS 0xA2
+#define EXTERNAL_EEPROM_USER_ADDRESS  0xA0
+
 class uArmClass
 {
 public:
@@ -91,6 +94,8 @@ public:
 
 	bool isMoving();
  	void stopMove();
+	void setReportInterval(unsigned int interval);
+	void reportPos();
 
 #ifdef MKII	
 	bool isPowerPlugIn();
@@ -116,6 +121,7 @@ private:
 	void btDetect();
 
 
+
 private:
 	int mCurStep;
 	int mTotalSteps;
@@ -130,10 +136,16 @@ private:
 	unsigned int mRecordAddr = 0;
 
 	unsigned char mTime50ms;
+	unsigned long mTickStartTime;
 
 	uArmButton mButtonD4;
 	uArmButton mButtonD7;
 
+	unsigned int mReportInterval;	//  ms. 0 means no report
+	unsigned int mTimeInterval;
+	unsigned long mReportStartTime;
+
+	unsigned long mTickRecorderTime;	
 #ifdef MKII
 	uArmLed mLed;
 #endif

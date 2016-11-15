@@ -16,7 +16,7 @@
 #include "uArm.h"
 #include "uArmBuzzer.h"
 
-#define COM_LEN_MAX   30
+#define COM_LEN_MAX   60
 
 enum CommState
 {
@@ -32,6 +32,9 @@ enum CommState
 #define OUT_OF_RANGE      10
 #define NO_SUCH_CMD       20
 #define PARAMETER_ERROR   21
+#define ADDRESS_ERROR     22
+
+#define REPORT_POS    3
 
 class uArmComm
 {
@@ -53,7 +56,8 @@ public:
  	 unsigned char cmdSetBuzz(int serialNum, int parameterCount, double value[4]);
  	 unsigned char cmdStopMove(int serialNum, int parameterCount, double value[4]);
 
-	 unsigned char cmdGetVersion(int serialNum, int parameterCount, double value[4]);
+	 unsigned char cmdGetHWVersion(int serialNum, int parameterCount, double value[4]);
+   unsigned char cmdGetSWVersion(int serialNum, int parameterCount, double value[4]);
 	 unsigned char cmdSimulatePos(int serialNum, int parameterCount, double value[4]);
 	 unsigned char cmdGetCurrentXYZ(int serialNum, int parameterCount, double value[4]);
  	 unsigned char cmdGetCurrentPosPol(int serialNum, int parameterCount, double value[4]); 
@@ -83,6 +87,13 @@ public:
 
      unsigned char cmdRelativeMove(int serialNum, int parameterCount, double value[4]);
 
+     unsigned char cmdSetReportInterval(int serialNum, int parameterCount, double value[4]);
+     unsigned char cmdGetDeviceName(int serialNum, int parameterCount, double value[4]);
+     unsigned char cmdGetAPIVersion(int serialNum, int parameterCount, double value[4]);
+     unsigned char cmdGetDeviceUUID(int serialNum, int parameterCount, double value[4]);
+
+     void reportPos();
+
   	 void run();	
 
    bool parseCommand(char *message);
@@ -100,8 +111,9 @@ public:
    void HandleQueryCmd(int cmdCode, int serialNum, int parameterCount, double value[4]);
 
    void replyOK(int serialNum);
-   void replyNoCmd(int serialNum);
+   void replyError(int serialNum, unsigned int errorCode);
    void replyResult(int serialNum, String result);
+   void reportResult(int reportCode, String result);
 private:
    CommState mState;
    unsigned char cmdReceived[COM_LEN_MAX];

@@ -21,7 +21,15 @@ uArmClass::uArmClass()
 	mCurStep = -1;
 	mTotalSteps = -1;
     mRecordAddr = 0;
+
+    mReportInterval = 0; 
+
+    mReportStartTime = millis();
+    mTickStartTime = millis();
+    mTickRecorderTime = millis();
 }
+
+
 
 void uArmClass::initHardware()
 {
@@ -46,6 +54,11 @@ void uArmClass::initHardware()
 
 }
 
+void uArmClass::setReportInterval(unsigned int interval)
+{
+    mReportInterval = interval;
+}
+
 void uArmClass::setup()
 {
 
@@ -64,6 +77,9 @@ void uArmClass::setup()
     mCurStep = -1;
     mTotalSteps = -1;    
 
+
+	uArm.moveTo(0, 150, 150);
+    Serial.println("@1");
 }
 
 
@@ -155,6 +171,8 @@ void uArmClass::recorderTick()
 
 }
 
+
+
 void uArmClass::systemRun()
 {
 //check the button4 status------------------------------------------------------------------------
@@ -241,6 +259,16 @@ void uArmClass::systemRun()
         }
     } 
 
+
+    if (mReportInterval > 0)
+    {
+        if(millis() - mReportStartTime >= mReportInterval)
+        {
+            mReportStartTime = millis();
+            gComm.reportPos();
+        }
+      
+    }
 	
 }
 
@@ -270,7 +298,7 @@ void uArmClass::btDetect()
 
 void uArmClass::tickTaskRun()
 {
-    recorderTick();
+    //recorderTick();
     mButtonD7.tick();
     mButtonD4.tick();
 #ifdef MKII
@@ -285,14 +313,27 @@ void uArmClass::run()
 	controllerRun();
 	systemRun();
 
-    if(mTime50ms != millis() % TICK_INTERVAL)   
-    {
-        mTime50ms = millis() % TICK_INTERVAL;
-        if(mTime50ms == 0)
+    // if(mTime50ms != millis() % TICK_INTERVAL)   
+    // {
+    //     mTime50ms = millis() % TICK_INTERVAL;
+    //     if(mTime50ms == 0)
+    //     {
+    //         tickTaskRun();
+    //     }
+    // }    
+
+        if(millis() - mTickStartTime >= TICK_INTERVAL)
         {
+            mTickStartTime = millis();
             tickTaskRun();
+        }    
+
+
+        if (millis() - mTickRecorderTime >= 50)
+        {
+            mTickRecorderTime= millis();
+            recorderTick();
         }
-    }    
 }
 
 void uArmClass::stopMove()
@@ -593,25 +634,25 @@ unsigned char uArmClass::moveToAngle(double targetRot, double targetLeft, double
     // calculate step time
     //double distance = sqrt((x-curX) * (x-curX) + (y-curY) * (y-curY) + (z-curZ) * (z-curZ));
     //speed = constrain(speed, 100, 1000);
-    timePerStep = (TICK_INTERVAL*2) / totalSteps;
+    timePerStep = (TICK_INTERVAL) / totalSteps;
 
 
     //keep timePerStep <= STEP_MAX_TIME
-    if (timePerStep > STEP_MAX_TIME)
-    {
-        double ratio = double(timePerStep) / STEP_MAX_TIME;
+    // if (timePerStep > STEP_MAX_TIME)
+    // {
+    //     double ratio = double(timePerStep) / STEP_MAX_TIME;
 
-        if (totalSteps * ratio < STEP_MAX)
-        {
-            totalSteps *= ratio;
-            timePerStep = STEP_MAX_TIME;
-        }
-        else
-        {
-            totalSteps = STEP_MAX;
-            timePerStep = STEP_MAX_TIME;
-        }
-    }
+    //     if (totalSteps * ratio < STEP_MAX)
+    //     {
+    //         totalSteps *= ratio;
+    //         timePerStep = STEP_MAX_TIME;
+    //     }
+    //     else
+    //     {
+    //         totalSteps = STEP_MAX;
+    //         timePerStep = STEP_MAX_TIME;
+    //     }
+    // }
 
 
     totalSteps = totalSteps < STEP_MAX ? totalSteps : STEP_MAX;
