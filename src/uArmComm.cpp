@@ -980,6 +980,7 @@ void uArmComm::reportPos()
 {
     double x, y, z;
 
+	uArm.mController.updateAllServoAngle();
     uArm.mController.getCurrentXYZ(x, y, z);
 
     char result[128];
